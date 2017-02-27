@@ -1,0 +1,452 @@
+#!/bin/sh
+# kate: replace-tabs off; tab-width 2; indent-width 2; indent-mode normal;
+# beryl Manager wrapper script
+# 
+# Copyright (c) 2007 Kristian Lyngstøl <kristian@bohemians.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#
+# Contributions by: 
+#    Treviño (3v1n0) <trevi55@gmail.com>, Ubuntu Packages
+#    Colin Guthrie (coling) <cguthrie@mandriva.org>, Mandriva Packages
+#
+# Much of this code is based on Beryl code, also licensed under the GPL.
+# This script will detect what options we need to pass to beryl to get it
+# started, and start a default plugin and possibly window decorator.
+# 
+
+
+beryl_BIN_PATH="/usr/local/bin" # For window decorators and beryl
+PLUGIN_PATH="/usr/local/lib/beryl"
+GLXINFO="/usr/bin/glxinfo"
+KWIN="/usr/bin/kwin"
+if [ "$XDG_CURRENT_DESKTOP" == "MATE" ]; then 
+    METACITY="/usr/bin/marco"
+else
+    METACITY="/usr/bin/metacity"
+fi
+beryl_NAME="beryl" # Final name for beryl (beryl.real) 
+
+# For Xgl LD_PRELOAD
+LIBGL_SONAME=libGL.so.1.2
+LIBGL_MESA="/usr/lib/mesa/${LIBGL_SONAME}.0"
+LIBGL_NVIDIA="/usr/lib/nvidia/${LIBGL_SONAME}"
+LIBGL_FGLRX="/usr/lib/fglrx/${LIBGL_SONAME}"
+
+# Minimum amount of memory (in kilo bytes) that nVidia cards need
+# to be allowed to start
+# Set to 262144 to require 256MB
+NVIDIA_MEMORY="65536" # 64MB
+NVIDIA_SETTINGS="nvidia-settings" # Assume it's in the path by default
+
+# For detecting what driver is in use, the + is for one or more /'s
+XORG_DRIVER_PATH="(/usr/lib/xorg/modules/drivers/+|/usr/lib/xorg/extra-modules/+)"
+
+# determin the fallback window manager
+FALLBACKWM=${METACITY}
+if [ -n "$KDE_FULL_SESSION" ]; then
+	FALLBACKWM=${KWIN}
+fi
+FALLBACKWM_OPTIONS="--replace $@"
+
+# Driver whitelist
+WHITELIST="nvidia intel ati radeon i810 fglrx"
+
+# blacklist based on the pci ids 
+# See http://wiki.beryl-fusion.org/Hardware/Blacklist for details
+T=""
+#T="$T 1002:5954 1002:5854 1002:5955" # ati rs480
+#T="$T 1002:4153" # ATI Rv350
+#T="$T 8086:2982 8086:2992 8086:29a2 8086:2a02 8086:2a12"  # intel 965
+BLACKLIST_PCIIDS="$T"
+unset T
+
+beryl_OPTIONS="--ignore-desktop-hints --replace"
+beryl_PLUGINS=""
+beryl_DECORATOR=""
+ENV=""
+
+# Use emerald by default if it exist
+START_DECORATOR="yes"
+USE_EMERALD="yes"
+
+# No indirect by default
+INDIRECT="no"
+
+# Default X.org log if xset q doesn't reveal it
+XORG_DEFAULT_LOG="/var/log/Xorg.0.log"
+
+# Set to yes to enable verbose
+VERBOSE="yes"
+
+# Echos the arguments if verbose
+verbose()
+{
+	if [ "x$VERBOSE" = "xyes" ]; then
+		printf "beryl-manager: $*"
+	fi
+}
+
+# abort script and run fallback windowmanager
+abort_with_fallback_wm()
+{
+	if [ "x$SKIP_CHECKS" = "xyes" ]; then
+		verbose "SKIP_CHECKS is yes, so continuing despite problems.\n"
+		return 0;
+	fi
+	
+	if [ -n "$CM_DRY" ]; then
+		verbose "Dry run failed: Problems detected with 3D support.\n"
+		exit 1;
+	fi
+
+	verbose "aborting and using fallback: $FALLBACKWM \n"
+	
+	# As we are bailing we should resore this to it's original value
+	if [ "$ORIG_INDIRECT" = "no" ]; then
+		unset LIBGL_ALWAYS_INDIRECT
+	else
+		export LIBGL_ALWAYS_INDIRECT=true
+	fi
+	
+	if [ -x $FALLBACKWM ]; then
+		exec $FALLBACKWM $FALLBACKWM_OPTIONS
+	else
+		printf "no $FALLBACKWM found, exiting\n"
+		exit 1
+	fi
+}
+
+# Check for non power of two texture support
+check_npot_texture()
+{
+	verbose "Checking for non power of two support: "
+	if glxinfo 2> /dev/null | egrep -q '(GL_ARB_texture_non_power_of_two|GL_NV_texture_rectangle|GL_EXT_texture_rectangle|GL_ARB_texture_rectangle)' ; then
+		verbose "present. \n";
+		return 0;
+	else
+		verbose "Not present. \n"
+		return 1;
+	fi
+
+}
+
+# Check for presence of FBConfig
+check_fbconfig()
+{
+	verbose "Checking for FBConfig: "
+	if [ "$INDIRECT" = "yes" ]; then
+		$GLXINFO -i | grep -q GLX.*fbconfig 
+		FB=$?
+	else
+		$GLXINFO | grep -q GLX.*fbconfig 
+		FB=$?
+	fi
+
+	if [ $FB = "0" ]; then
+		unset FB
+		verbose "present. \n"
+		return 0;
+	else
+		unset FB
+		verbose "not present. \n"
+		return 1;
+	fi
+}
+
+
+# Check for TFP
+check_tfp()
+{
+	verbose "Checking for texture_from_pixmap: "
+	if [ $($GLXINFO 2>/dev/null | grep GLX_EXT_texture_from_pixmap -c) -gt 2 ] ; then
+		verbose "present. \n"
+		return 0;
+	else
+		verbose "not present. \n"
+		if [ "$INDIRECT" = "yes" ]; then
+			unset LIBGL_ALWAYS_INDIRECT
+			INDIRECT="no"
+			return 1;
+		else
+			verbose "Trying again with indirect rendering:\n";
+			INDIRECT="yes"
+			export LIBGL_ALWAYS_INDIRECT=true
+			check_tfp;
+			return $?
+		fi
+	fi
+}
+
+# Check wether the composite extension is present
+check_composite()
+{
+	verbose "Checking for Composite extension: "
+	if xdpyinfo -queryExtensions | grep -q Composite ; then
+		verbose "present. \n";
+		return 0;
+	else
+		verbose "not present. \n";
+		return 1;
+	fi
+}
+
+# Detects if Xgl is running
+check_xgl()
+{
+	verbose "Checking for Xgl: "
+	if xvinfo | grep -q Xgl ; then
+		verbose "present. \n"
+		return 0;
+	else
+		verbose "not present. \n"
+		return 1;
+	fi
+}
+
+# Check if the nVidia card has enough video ram to make sense
+check_nvidia_memory()
+{
+	MEM=$(${NVIDIA_SETTINGS} -q VideoRam | egrep Attribute\ \'VideoRam\'\ .*: | cut -d: -f3 | sed 's/[^0-9]//g')
+	if [ $MEM -lt $NVIDIA_MEMORY ]; then
+		verbose "Less than ${NVIDIA_MEMORY}kb of memory and nVidia";
+		return 1;
+	fi
+	return 0;
+}
+
+# Check for existence if NV-GLX
+check_nvidia()
+{
+	if [ ! -z $NVIDIA_INTERNAL_TEST ]; then
+		return $NVIDIA_INTERNAL_TEST;
+	fi
+	verbose "Checking for nVidia: "
+	if xdpyinfo | grep -q NV-GLX ; then
+		verbose "present. \n"
+		NVIDIA_INTERNAL_TEST=0
+		return 0;
+	else
+		verbose "not present. \n"
+		NVIDIA_INTERNAL_TEST=1
+		return 1;
+	fi
+}
+
+# Check if the max texture size is large enough compared to the resolution
+check_texture_size()
+{
+	TEXTURE_LIMIT=$(glxinfo -l | grep GL_MAX_TEXTURE_SIZE | sed 's/.*=[^0-9]//g')
+	RESOLUTION=$(xdpyinfo  | grep -i dimensions: | sed 's/[^0-9]*pixels.*(.*).*//' | sed 's/[^0-9x]*//')
+	VRES=$(echo $RESOLUTION | sed 's/.*x//')
+	HRES=$(echo $RESOLUTION | sed 's/x.*//')
+	verbose "Comparing resolution ($RESOLUTION) to maximum 3D texture size ($TEXTURE_LIMIT): ";
+	if [ "$VRES" -gt "$TEXTURE_LIMIT" ] || [ "$HRES" -gt "$TEXTURE_LIMIT" ]; then
+		verbose "Failed.\n"
+		return 1;
+	fi
+	verbose "Passed.\n"
+	return 0
+}
+
+# check driver whitelist
+running_under_whitelisted_driver()
+{
+	LOG=$(xset q | grep "Log file" | awk '{print $3}')
+	if [ "$LOG" = "" ]; then
+	    verbose "xset q doesn't reveal the location of the log file. Using fallback $XORG_DEFAULT_LOG \n"
+	    LOG=$XORG_DEFAULT_LOG;
+	fi
+	if [ ! -r "$LOG" ];then
+		verbose "AIEEEEH, no readable Log file found \n"
+		verbose "$(xset q) \n"
+	return 0
+	fi
+	for DRV in ${WHITELIST}; do
+		if egrep -q "Loading ${XORG_DRIVER_PATH}${DRV}_drv\.so" $LOG &&
+		   ! egrep -q "Unloading ${XORG_DRIVER_PATH}${DRV}_drv\.so" $LOG; 
+		then
+			return 0
+		fi
+	done
+	verbose "No whitelisted driver found\n"
+	return 1
+}
+
+# check pciid blacklist
+have_blacklisted_pciid()
+{
+	OUTPUT=$(lspci -n)
+	for ID in ${BLACKLIST_PCIIDS}; do
+		if echo "$OUTPUT" | egrep -q "$ID"; then
+			verbose "Blacklisted PCIID '$ID' found \n"
+			return 0
+		fi
+	done
+	OUTPUT=$(lspci -vn | grep -i VGA)
+	verbose "Detected PCI ID for VGA: $OUTPUT\n"
+	return 1
+}
+
+build_env()
+{
+	if check_nvidia; then
+		ENV="__GL_YIELD=NOTHING "
+	fi
+	if [ "$INDIRECT" = "yes" ]; then
+		ENV="$ENV LIBGL_ALWAYS_INDIRECT=true "
+	fi
+	if check_xgl; then
+		if [ -f "${LIBGL_MESA}" ]; then
+			ENV="$ENV LD_PRELOAD=${LIBGL_MESA}"
+			verbose "Enabling Xgl with Mesa GL override...\n"
+		elif [ -f ${LIBGL_NVIDIA} ]; then
+			ENV="$ENV LD_PRELOAD=${LIBGL_NVIDIA}"
+			verbose "Enabling Xgl with Mesa GL override (nVidia drivers)...\n"
+		elif [ -f ${LIBGL_FGLRX} ]; then
+			ENV="$ENV LD_PRELOAD=${LIBGL_FGLRX}"
+			verbose "Enabling Xgl with Mesa GL override (fglrx ATi drivers)...\n"
+		else
+			verbose "Cannot find Mesa GL libs for running under Xgl"
+			abort_with_fallback_wm
+		fi
+	fi
+
+	ENV="$ENV FROM_WRAPPER=yes"
+
+	if [ -n "$ENV" ]; then
+		verbose "Setting environment: $ENV\n"
+	fi
+}
+
+
+build_args()
+{
+	if [ "x$INDIRECT" = "xyes" ]; then
+		beryl_OPTIONS="$beryl_OPTIONS --indirect-rendering "
+	fi
+	if check_nvidia; then
+		if [ "x$INDIRECT" != "xyes" ]; then
+			beryl_OPTIONS="$beryl_OPTIONS --loose-binding"
+		fi
+	fi
+	intel_active='$(glxinfo|grep "OpenGL renderer" | grep "Intel")'
+  if ! [ -z "$intel_active" ];then
+		  beryl_OPTIONS="$beryl_OPTIONS --sm-disable"
+	fi
+	verbose "Setting arguments: $beryl_OPTIONS\n"
+}
+
+####################
+# Execution begins here.
+
+# Read configuration from XDG paths
+if [ -z "$XDG_CONFIG_DIRS" ]; then
+	test -f /etc/xdg/beryl/beryl-manager && . /etc/xdg/beryl/beryl-manager
+else
+	test -f $XDG_CONFIG_DIRS/beryl/beryl-manager && . $XDG_CONFIG_DIRS/beryl/beryl-manager
+fi
+
+if [ -z "$XDG_CONFIG_HOME" ]; then
+	test -f $HOME/.config/beryl/beryl-manager && . $HOME/.config/beryl/beryl-manager
+else
+	test -f $XDG_CONFIG_HOME/beryl/beryl-manager && .  $XDG_CONFIG_HOME/beryl/beryl-manager
+fi
+
+# Don't use beryl when running the failsafe session
+if [ "x$GNOME_DESKTOP_SESSION_ID" = "xFailsafe" ]; then
+	abort_with_fallback_wm
+fi
+
+ORIG_INDIRECT="no"
+if [ "x$LIBGL_ALWAYS_INDIRECT" = "x1" ]; then
+	INDIRECT="yes";
+	ORIG_INDIRECT="yes"
+fi
+
+# if we run under Xgl, we can skip some tests here
+if ! check_xgl; then
+	# if vesa or vga are in use, do not even try glxinfo (LP#119341)
+	if ! running_under_whitelisted_driver || have_blacklisted_pciid; then
+		abort_with_fallback_wm
+	fi
+	# check if we have the required bits to run beryl and if not, 
+	# fallback
+	if ! check_tfp || ! check_npot_texture || ! check_composite || ! check_texture_size; then
+		abort_with_fallback_wm
+	fi
+
+	if check_nvidia && ! check_nvidia_memory; then
+		abort_with_fallback_wm
+	fi
+
+	if ! check_fbconfig; then
+		abort_with_fallback_wm
+	fi
+	
+	# We are done with all the tests so we should restore the exported
+	# variables in case of fallback.
+	if [ "$ORIG_INDIRECT" = "no" ]; then
+		unset LIBGL_ALWAYS_INDIRECT
+	else
+		export LIBGL_ALWAYS_INDIRECT=true
+	fi
+fi
+
+# load the ccp plugin if present and fallback to plain gconf if not
+#if [ -z "$beryl_PLUGINS" ]; then
+	if [ -f ${PLUGIN_PATH}/libccp.so ]; then
+		beryl_PLUGINS="$beryl_PLUGINS ccp"
+#	elif [ -f ${PLUGIN_PATH}/libgconf.so ]; then
+#		beryl_PLUGINS="$beryl_PLUGINS glib gconf"
+	fi
+#fi
+
+# get environment
+build_env
+build_args
+
+if [ -n "$CM_DRY" ]; then
+	verbose "Dry run finished: everything should work with regards to beryl and 3D.\n"
+	exit 0;
+fi
+
+# calculate which window decorator to use
+if [ "${START_DECORATOR}" = "yes" ]; then
+	if [ -z "${beryl_DECORATOR}" ]; then
+		if [ -x ${beryl_BIN_PATH}/emerald -a "$USE_EMERALD" = "yes" ]; then
+			beryl_DECORATOR=${beryl_BIN_PATH}/emerald
+		elif [ -x ${beryl_BIN_PATH}/kde-window-decorator -a -n "$KDE_FULL_SESSION" ]; then
+			beryl_DECORATOR=${beryl_BIN_PATH}/kde-window-decorator
+		elif [ -x ${beryl_BIN_PATH}/beryl-gtk-decorator -a -n "$GNOME_DESKTOP_SESSION_ID" ]; then
+			beryl_DECORATOR=${beryl_BIN_PATH}/beryl-gtk-decorator
+    elif [ -x ${beryl_BIN_PATH}/beryl-gtk-decorator -a -n "$MATE_DESKTOP_SESSION_ID" ]; then
+			beryl_DECORATOR=${beryl_BIN_PATH}/beryl-gtk-decorator
+		else
+			# Can't find anything by preference, so let's just fall back to gtk....
+			beryl_DECORATOR=beryl-gtk-decorator
+		fi
+	fi
+	
+	if [ -x "${beryl_DECORATOR}" ]; then
+		verbose "Starting window decorator ${beryl_DECORATOR}\n"
+		${beryl_DECORATOR} --replace &
+	fi
+fi
+
+# do not export the whole environment as we do not want this set for decorators or fallback
+([ -n "$ENV" ] && export $ENV; ${beryl_BIN_PATH}/${beryl_NAME} $beryl_OPTIONS "$@" $beryl_PLUGINS) || exec $FALLBACKWM $FALLBACKWM_OPTIONS

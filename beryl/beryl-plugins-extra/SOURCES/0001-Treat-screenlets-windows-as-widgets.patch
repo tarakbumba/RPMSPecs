@@ -1,0 +1,25 @@
+From 5f7a3c215fbbeae858bdb1ce1eea2543511c6222 Mon Sep 17 00:00:00 2001
+From: Colin Guthrie <cguthrie@mandriva.org>
+Date: Sun, 8 Feb 2009 13:18:08 +0000
+Subject: [PATCH] Treat screenlets windows as widgets
+
+---
+ widget/widget.xml.in |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/widget/widget.xml.in b/widget/widget.xml.in
+index 10d6b20..db7a893 100644
+--- a/metadata/widget.xml.in
++++ b/metadata/widget.xml.in
+@@ -30,7 +30,7 @@
+ 				<option name="match" type="match">
+ 					<_short>Widget Windows</_short>
+ 					<_long>Windows that always should be treated as widgets</_long>
+-					<default></default>
++					<default>class=Screenlet.py</default>
+ 				</option>
+ 				<option name="end_on_click" type="bool">
+ 					<_short>End Widget Mode on Click</_short>
+-- 
+1.6.1.2
+
