@@ -1,0 +1,70 @@
+diff -Naur emerald/configure.ac emerald-new/configure.ac
+--- emerald/configure.ac	2016-04-04 21:46:36.000000000 +0300
++++ emerald-new/configure.ac	2017-03-02 01:44:12.037656552 +0300
+@@ -59,10 +59,33 @@
+        ;;
+ esac
+ 
++AC_MSG_CHECKING([which compiz based compositor to compile against])
++AC_ARG_WITH([compositor],
++  AC_HELP_STRING([--with-compositor=compiz|beryl],
++                 [Which gtk+ version to compile against (default: beryl)]),
++  [case "$with_compositor" in
++      compiz|beryl) ;;
++      *) AC_MSG_ERROR([invalid compositor specified]);;
++  esac],
++  [with_compositor=beryl])
++AC_MSG_RESULT([$with_compositor])
++
++case "$with_compositor" in
++  compiz) 
++          COMPOSITOR_DECORATION=libdecoration
++          AC_DEFINE([HAVE_COMPIZ], [1], ["Define Compiz support"])
++          AC_DEFINE(DECOR_INTERFACE_VERSION, 20110504, [Build with libdecoration 0.9.x support])
++       ;;
++  beryl)  
++          AC_DEFINE([HAVE_BERYL], [1], ["Define Beryl support"])
++          COMPOSITOR_DECORATION=libberyldecor
++       ;;
++esac
++
+ EMERALD_REQUIRES=" xrender >= 0.8.4				  \
+ 		    gtk+-$GTK_API_VERSION >= $GTK_MIN_VERSION	   \
+ 		    libwnck-$WNCK_API_VERSION >= $WNCK_MIN_VERSION \
+-		    libdecoration				   \
++		    $COMPOSITOR_DECORATION				   \
+ 		    cairo >= 1.4				   \
+ 		    pangocairo"
+ 
+@@ -73,15 +96,6 @@
+ LIBS="$LIBS $EMERALD_LIBS -lm -ldl"
+ AC_CHECK_FUNCS(wnck_window_has_name)
+ 
+-AC_ARG_ENABLE(decor09,
+-  [  --enable-decor09        Use libdecoration 0.9.x support],
+-  [use_decor09=$enableval], [use_decor09=no])
+-
+-AM_CONDITIONAL(DECOR_INTERFACE_VERSION, test "x$use_decor09" = "xyes")
+-if test "$use_decor09" = yes; then
+-  AC_DEFINE(DECOR_INTERFACE_VERSION, 20110504, [Build with libdecoration 0.9.x support])
+-fi
+-
+ AC_ARG_ENABLE(mime-update,
+ [  --enable-mime-update],
+ [case "${enableval}" in
+diff -Naur emerald/include/emerald.h emerald-new/include/emerald.h
+--- emerald/include/emerald.h	2016-04-04 17:59:10.000000000 +0300
++++ emerald-new/include/emerald.h	2017-03-02 01:40:51.134667968 +0300
+@@ -3,8 +3,11 @@
+ #ifdef HAVE_CONFIG_H
+ #include <config.h>
+ #endif
+-
++#ifdef HAVE_COMPIZ
+ #include <decoration.h>
++#elif HAVE_BERYL
++#include <beryldecor.h>
++#endif
+ 
+ #include <X11/Xlib.h>
+ #include <X11/Xatom.h>
