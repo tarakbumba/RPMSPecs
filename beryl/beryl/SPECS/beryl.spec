@@ -175,6 +175,7 @@ for project in $(grep -rl compiz); do sed -i "s|compiz|beryl|g" $project; done
 for project in $(grep -rl COMPIZ); do sed -i "s|COMPIZ|BERYL|g" $project; done
 for project in $(grep -rl decoration); do sed -i "s|decoration|beryldecor|g" $project; done
 for project in $(grep -rl gtk-window-decorator); do sed -i "s|gtk-window-decorator|beryl-gtk-decorator|g" $project; done
+for project in $(grep -rl gtk_window_decorator); do sed -i "s|gtk_window_decorator|beryl_gtk_decorator|g" $project; done
 
 %build
 %if %{git}
