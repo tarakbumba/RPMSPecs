@@ -2,7 +2,7 @@
 
 %define	oname		compiz-bcop
 %define	shortname	bcop
-%define	version		0.8.12
+%define	version		0.8.14
 %define	rel			1
 %define	git			0
 
@@ -65,4 +65,10 @@ for project in $(grep -rl ccm); do sed -i "s|ccm|bcm|g" $project; done
 %install
 %makeinstall_std
 
+%changelog
+* Tue Jan 09 2018 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.14-1
+- Update to 0.8.14 version
+
+* Tue Feb 28 2017 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.12.4-1
+- Initial package
 
