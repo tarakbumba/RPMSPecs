@@ -1,5 +1,5 @@
 %define oldname ccsm
-%define version 0.8.12.4
+%define version 0.8.14
 %define rel 1
 %define git 0
 
@@ -23,7 +23,9 @@ URL:	    https://github.com/compiz-reloaded
 BuildArch:  noarch
 Source0:    https://github.com/compiz-reloaded/%{oldname}/releases/download/v%{version}/%{srcname}
 
-BuildRequires:  pkgconfig(python-2.7)
+Patch0:         ccsm_0001-Include-ccsm.appdata.xml.in-in-the-MANIFEST.patch
+
+BuildRequires:  pkgconfig(python3)
 BuildRequires:  gettext
 BuildRequires:  intltool
 BuildRequires:  desktop-file-utils
@@ -31,8 +33,8 @@ Requires(post): desktop-file-utils
 Requires(postun): desktop-file-utils
 
 Requires: berylconfig-python
-Requires: python-gobject
-Requires: python-cairo
+Requires: python3-gobject
+Requires: python3-cairo
 Requires: pango
 
 
@@ -42,7 +44,10 @@ Configuration tool for Compiz/Beryl when used with the ccp configuration plugin 
 #----------------------------------------------------------------------------
 
 %prep
-%autosetup -n %{distname}
+%autosetup -n %{distname} -p1
+
+# Patch0:
+mv ccsm.appdata.xml ccsm.appdata.xml.in
 
 # Rename project to avoid conflicts with compiz > 0.9.0
 # This changes file names
@@ -62,11 +67,12 @@ for project in $(grep -rl ccm); do sed -i "s|ccm|bcm|g" $project; done
 
 
 %build
-%py2_build --with-gtk=3.0
+#py3_build macro won't work
+python3 setup.py build --prefix=%{_prefix} --with-gtk=3.0
 
 %install
-# py2_install macro won't work
-python2 setup.py install --prefix=%{_prefix} --root=%{buildroot}
+# py3_install macro won't work
+python3 setup.py install --prefix=%{_prefix} --root=%{buildroot}
 
 desktop-file-install \
   --vendor="" \
@@ -78,6 +84,8 @@ desktop-file-install \
   --dir %{buildroot}%{_datadir}/applications \
   %{buildroot}%{_datadir}/applications/%{name}.desktop
   
+mv %{buildroot}%{_datadir}/{metainfo,appdata}/
+  
 %find_lang %{name}
 
 %files -f %{name}.lang
@@ -88,8 +96,15 @@ desktop-file-install \
 %dir %{_datadir}/bcsm
 %{_datadir}/bcsm/*
 %{_datadir}/icons/hicolor/*/apps/bcsm.*
-%dir %{python2_sitelib}/bcm
-%{python2_sitelib}/bcm/*
-%{python2_sitelib}/bcsm-%{version}-py?.?.egg-info
+%dir %{python3_sitelib}/bcm
+%{python3_sitelib}/bcm/*
+%{python3_sitelib}/bcsm-%{version}-py?.?.egg-info
 
+%changelog
+* Tue Jan 09 2018 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.14-1
+- Update to 0.8.14 version
+- Compile against python3
+
+* Tue Feb 28 2017 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.12.4-1
+- Initial package
 

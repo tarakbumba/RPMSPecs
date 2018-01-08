@@ -1,0 +1,25 @@
+From 027aab1b0742030c29c1ca76415b71194f8c4cf2 Mon Sep 17 00:00:00 2001
+From: Alexei Sorokin <sor.alexei@meowr.ru>
+Date: Tue, 18 Apr 2017 16:27:05 +0300
+Subject: [PATCH] Include ccsm.appdata.xml.in in the MANIFEST
+
+---
+ MANIFEST.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/MANIFEST.in b/MANIFEST.in
+index 7f736e1..a0afe9f 100644
+--- a/MANIFEST.in
++++ b/MANIFEST.in
+@@ -3,7 +3,7 @@ include INSTALL AUTHORS COPYING LICENSE NEWS VERSION
+ include ccsm.in
+ exclude ccsm
+ include ccsm.desktop.in
+-include ccsm.appdata.xml
++include ccsm.appdata.xml.in
+ include ccm/Constants.py.in
+ include Makefile MANIFEST.in
+ recursive-include images *
+-- 
+2.12.2
+
