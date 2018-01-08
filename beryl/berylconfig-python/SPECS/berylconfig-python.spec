@@ -1,7 +1,7 @@
 %define oldname     compizconfig-python
 %define	shortname	berylconfig
 
-%define	version		0.8.12.1
+%define	version		0.8.14
 %define	rel			1
 %define	git			0
 
@@ -30,9 +30,9 @@ License:	LGPLv2+
 
 BuildRequires:	pkgconfig(beryl)
 BuildRequires:	pkgconfig(libberylconfig)
-BuildRequires:	pkgconfig(python-2.7)
+BuildRequires:	pkgconfig(python3)
 BuildRequires:	pkgconfig(glib-2.0)
-BuildRequires:	python-cython
+BuildRequires:	python3-cython
 
 %description
 Python bindings for libberylconfig
@@ -50,7 +50,7 @@ Requires:	libberylconfig-common
 Python Bindings for Compiz/Beryl Settings
 
 %files -n %{libname}
-%{py_platsitedir}/%{shortname}.so
+%{python3_sitearch}/%{shortname}.so
 
 #----------------------------------------------------------------------------
 
@@ -93,7 +93,11 @@ for project in $(grep -rl ccm); do sed -i "s|ccm|bcm|g" $project; done
   # This is a GIT snapshot, so we need to generate makefiles.
   sh autogen.sh -V
 %endif
-%configure2_5x
+
+export PYTHON=python3
+
+%configure2_5x --disable-static \
+               --with-cython=cython-3
 %make_build
 
 %install
@@ -102,3 +106,11 @@ find %{buildroot} -name *.la -exec rm -f {} \;
 find %{buildroot} -name *.a -exec rm -f {} \;
 
 #----------------------------------------------------------------------------
+
+%changelog
+* Tue Jan 09 2018 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.14-1
+- Update to 0.8.14 version
+- Migrate package to python3
+
+* Tue Feb 28 2017 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.12.4-1
+- Initial package
