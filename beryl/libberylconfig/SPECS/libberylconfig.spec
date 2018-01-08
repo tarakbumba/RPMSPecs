@@ -1,6 +1,6 @@
 %define oname       libcompizconfig
 %define	shortname	berylconfig
-%define	version		0.8.12.1
+%define	version		0.8.14
 %define	rel			1
 %define	git			0
 
@@ -23,7 +23,8 @@ Summary:	Backend configuration library for Beryl/Compiz
 Name:		libberylconfig
 Version:	%{version}
 Release:	%{release}
-License:	GPLv2+
+# backends/libini.so is GPLv2+, other parts are LGPLv2+
+License:     LGPLv2+ and GPLv2+
 Group:		System/X11
 URL:		https://github.com/compiz-reloaded
 
