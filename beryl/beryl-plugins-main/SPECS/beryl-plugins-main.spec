@@ -2,7 +2,7 @@
 
 %define	name	beryl-plugins-main
 %define	oldname	compiz-plugins-main
-%define	version	0.8.12.2
+%define	version	0.8.14
 %define	rel		1
 %define	git		0
 
@@ -105,3 +105,9 @@ find %{buildroot} -name '*.a' -exec rm -f {} ';'
 
 %find_lang %{name}
 #----------------------------------------------------------------------------
+%changelog
+* Tue Jan 09 2018 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.14-1
+- Update to 0.8.14 version
+
+* Tue Feb 28 2017 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.12.2-1
+- Initial package
