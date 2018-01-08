@@ -1,11 +1,11 @@
-%global    core_plugins    blur clone cube fade ini inotify minimize move place png regex resize rotate scale screenshot switcher video water wobbly zoom fs obs commands wall annotate svg matecompat
+%global    core_plugins    blur clone cube fade ini inotify minimize move place png regex resize rotate scale screenshot switcher water wobbly zoom fs obs commands wall annotate svg matecompat
  
 # List of plugins passed to ./configure.  The order is important
  
 %global    plugins         core,dbus,beryldecor,fade,minimize,move,obs,place,png,resize,scale,screenshot,svg,switcher,wall
 
 %define oname compiz
-%define	version	0.8.12.3
+%define	version	0.8.14
 %define	rel		1
 %define	git		0
 
@@ -190,6 +190,7 @@ for project in $(grep -rl gtk_window_decorator); do sed -i "s|gtk_window_decorat
     --enable-marco \
     --enable-gsettings \
     --enable-menu-entries \
+    --enable-berylconfig \
     --with-default-plugins=%{plugins}
 
 %make_build
@@ -226,3 +227,11 @@ done >> core-files.txt
 echo %{_libdir}/beryl/libberyldecor.so >> core-files.txt
 echo %{_datadir}/beryl/beryldecor.xml >> core-files.txt
 #----------------------------------------------------------------------------
+
+%changelog
+* Tue Jan 09 2018 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.14-1
+- Update to 0.8.14 version
+- Remove deprecated video plugin
+
+* Tue Feb 28 2017 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.12.4-1
+- Initial package
