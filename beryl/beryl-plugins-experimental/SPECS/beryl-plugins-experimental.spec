@@ -1,7 +1,7 @@
 %define _disable_ld_no_undefined 1
 %define	oldname	compiz-plugins-experimental
 
-%define	version	0.8.12
+%define	version	0.8.14
 %define	rel		1
 %define	git		0
 
@@ -108,3 +108,10 @@ find $RPM_BUILD_ROOT -name '*.a' -exec rm -f {} ';'
 %find_lang %{name}
 
 #----------------------------------------------------------------------------
+%changelog
+* Tue Jan 09 2018 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.14-1
+- Update to 0.8.14 version
+
+* Tue Feb 28 2017 Atilla ÖNTAŞ <tarakbumba@gmail.com> 0.8.12.4-1
+- Initial package
+
