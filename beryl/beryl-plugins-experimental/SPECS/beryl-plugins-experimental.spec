@@ -60,6 +60,8 @@ This is a combination of the Compiz Extras and Beryl communities
 %{_datadir}/beryl/snow/*.png
 %{_datadir}/beryl/stars/*.png
 %{_datadir}/beryl/earth/*.png
+%{_datadir}/beryl/earth/earth.frag
+%{_datadir}/beryl/earth/earth.vert
 
 #----------------------------------------------------------------------------
 
