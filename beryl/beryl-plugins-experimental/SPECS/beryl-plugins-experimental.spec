@@ -59,6 +59,7 @@ This is a combination of the Compiz Extras and Beryl communities
 %{_datadir}/beryl/fireflies/*.png
 %{_datadir}/beryl/snow/*.png
 %{_datadir}/beryl/stars/*.png
+%{_datadir}/beryl/earth/*.png
 
 #----------------------------------------------------------------------------
 
